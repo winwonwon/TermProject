@@ -42,54 +42,35 @@ class ObjectDataset(Dataset):
             os.path.join(self.image_dir, f) for f in self.images_info 
             if f.endswith(('.jpg', '.png'))
         ]
+
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
-        img = Image.open(image_path).convert("RGB")
+        img = Image.open(image_path).convert("RGB")  # Opening as PIL Image
         filename = os.path.basename(image_path)
 
-        # Convert PIL image to tensor
-        img = transforms.ToTensor()(img)  # Shape: [3, H, W]
-        img_h, img_w = img.shape[1:]      # Get height and width
+        img_h, img_w = img.size[1], img.size[0]  # height, width
 
-        # Initialize single-label (multiclass) vector
-        num_classes = len(self.class_to_idx)
-        label = torch.zeros(num_classes, dtype=torch.float32)
-
-        # Get annotations for this image
         annotations = self.annotations_info.get(filename, [])
-
-        # Collect bounding boxes and classes
         bboxes = []
         for ann in annotations:
-            class_name = self.class_id_to_name[ann['category_id']]
-            class_idx = self.class_to_idx[class_name]
-            label[class_idx] = 1.0  # Mark class as present
-
-            # Normalize bbox to [0, 1]
             x, y, w, h = ann['bbox']
             x /= img_w
             y /= img_h
             w /= img_w
             h /= img_h
             bboxes.append([x, y, w, h])
-
-        # Convert to tensor
         bboxes = torch.tensor(bboxes, dtype=torch.float32) if bboxes else torch.zeros((0, 4))
-
-        # Pad or truncate to fixed number of boxes
         max_boxes = 10
         if len(bboxes) < max_boxes:
-            padding = torch.zeros((max_boxes - len(bboxes), 4), dtype=torch.float32)
-            bboxes = torch.cat([bboxes, padding])
+            pad = torch.zeros((max_boxes - len(bboxes), 4))
+            bboxes = torch.cat([bboxes, pad])
         else:
             bboxes = bboxes[:max_boxes]
 
-        # Apply optional transforms
         if self.transform:
-            img, bboxes = self.transform(img, bboxes)
+            img = self.transform(img)  # this transform now converts the image to float
 
-        return img, label, bboxes
+        return img, bboxes
 
-    
     def __len__(self):
         return len(self.image_paths)  # Critical for DataLoader to work
