@@ -1,0 +1,8 @@
+path: TermProject/dataset
+train: train/images
+val: valid/images
+test: test/images
+
+names:
+  0: Cracks
+  1: none
